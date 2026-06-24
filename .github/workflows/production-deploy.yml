@@ -140,7 +140,7 @@ jobs:
           ssh "$EC2_USER@$EC2_HOST" 'bash -s' < scripts/deploy/bootstrap-ec2.sh
           tar czf deployment.tgz compose.production.yaml monitoring
           scp deployment.tgz production.env "$EC2_USER@$EC2_HOST:/tmp/"
-          ssh "$EC2_USER@$EC2_HOST" 'set -e; umask 077; tar xzf /tmp/deployment.tgz -C /opt/ghost; if [ -f /opt/ghost/.env ]; then grep -vE "^(IMAGE_REPOSITORY|IMAGE_TAG|GHOST_URL|GHOST_PORT|MONITORING_BIND_ADDRESS|PROMETHEUS_RETENTION)=" /opt/ghost/.env > /tmp/merged.env || true; else printf "MYSQL_ROOT_PASSWORD=%s\nMYSQL_PASSWORD=%s\nGRAFANA_ADMIN_PASSWORD=%s\n" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > /tmp/merged.env; fi; sed -n "/^MYSQL_ROOT_PASSWORD=/p;/^MYSQL_PASSWORD=/p;/^GRAFANA_ADMIN_PASSWORD=/p" /tmp/merged.env | grep -q .; cat /tmp/production.env >> /tmp/merged.env; install -m 600 /tmp/merged.env /opt/ghost/.env; rm -f /tmp/deployment.tgz /tmp/production.env /tmp/merged.env'
+          ssh "$EC2_USER@$EC2_HOST" 'set -e; umask 077; tar xzf /tmp/deployment.tgz -C /opt/ghost; find /opt/ghost/monitoring -type d -exec chmod 755 {} +; find /opt/ghost/monitoring -type f -exec chmod 644 {} +; if [ -f /opt/ghost/.env ]; then grep -vE "^(IMAGE_REPOSITORY|IMAGE_TAG|GHOST_URL|GHOST_PORT|MONITORING_BIND_ADDRESS|PROMETHEUS_RETENTION)=" /opt/ghost/.env > /tmp/merged.env || true; else printf "MYSQL_ROOT_PASSWORD=%s\nMYSQL_PASSWORD=%s\nGRAFANA_ADMIN_PASSWORD=%s\n" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > /tmp/merged.env; fi; sed -n "/^MYSQL_ROOT_PASSWORD=/p;/^MYSQL_PASSWORD=/p;/^GRAFANA_ADMIN_PASSWORD=/p" /tmp/merged.env | grep -q .; cat /tmp/production.env >> /tmp/merged.env; install -m 600 /tmp/merged.env /opt/ghost/.env; rm -f /tmp/deployment.tgz /tmp/production.env /tmp/merged.env'
 
       - name: Pull and deploy
         env:
@@ -157,7 +157,23 @@ jobs:
           EC2_HOST: ${{ vars.EC2_HOST || secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
         run: |
-          ssh "$EC2_USER@$EC2_HOST" 'for attempt in $(seq 1 30); do status=$(docker inspect --format="{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" ghost-production-ghost-1 2>/dev/null || true); if [ "$status" = healthy ]; then curl -fsS http://127.0.0.1/ >/dev/null && exit 0; fi; sleep 10; done; cd /opt/ghost; docker compose -f compose.production.yaml ps; docker compose -f compose.production.yaml logs --tail=150 ghost; exit 1'
+          ssh "$EC2_USER@$EC2_HOST" 'bash -s' <<'REMOTE'
+          set -e
+          cd /opt/ghost
+          for attempt in $(seq 1 30); do
+            ghost_status=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' ghost-production-ghost-1 2>/dev/null || true)
+            running_services=$(docker compose -f compose.production.yaml ps --status running --services | wc -l)
+            if [ "$ghost_status" = healthy ] && [ "$running_services" -eq 8 ]; then
+              if curl -fsS http://127.0.0.1/ >/dev/null && curl -fsS http://127.0.0.1:9090/-/ready >/dev/null; then
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          docker compose -f compose.production.yaml ps
+          docker compose -f compose.production.yaml logs --tail=150
+          exit 1
+          REMOTE
 
       - name: Deployment summary
         if: always()

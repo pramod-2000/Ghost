@@ -113,7 +113,10 @@ services:
     image: prom/mysqld-exporter:v0.15.1
     restart: unless-stopped
     environment:
-      DATA_SOURCE_NAME: root:${MYSQL_ROOT_PASSWORD}@(mysql:3306)/
+      MYSQLD_EXPORTER_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command:
+      - --mysqld.address=mysql:3306
+      - --mysqld.username=root
     depends_on:
       mysql:
         condition: service_healthy
