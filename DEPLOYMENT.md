@@ -14,20 +14,20 @@ Add these GitHub **Actions secrets**:
 
 - `EC2_SSH_PRIVATE_KEY` (paste the **complete contents** of the EC2 `.pem` file, including the `BEGIN` and `END` lines)
 - `EC2_USER` (optional; defaults to `ubuntu`)
-- `GHOST_URL` (for example `http://blog.example.com` or the EC2 public URL)
-- `MYSQL_ROOT_PASSWORD` and `MYSQL_PASSWORD`
-- `GRAFANA_ADMIN_PASSWORD`
 
 GitHub **Actions variables**:
 
 - `EC2_HOST` (required public IP or DNS name; the workflow automatically records its SSH host key)
 - `IMAGE_NAME` (defaults to `ghost-custom`)
+- `GHOST_URL` (optional custom domain; defaults to `http://EC2_HOST`)
 
 Create a protected GitHub environment named `production`. Pushing or merging to `main` then builds the custom Ghost distribution, publishes immutable `sha-...` and `latest` tags to GitHub Container Registry (`ghcr.io`) using the workflow's automatic `GITHUB_TOKEN`, installs Docker on EC2 when needed, deploys the exact SHA image, checks health, and writes the result to the workflow summary.
 
 GitHub Secrets cannot receive a file upload. Open the PEM file as text and paste all of it into `EC2_SSH_PRIVATE_KEY`. The workflow writes it to a permission-protected temporary SSH key on the runner. The EC2 security group must permit inbound TCP port 22 from the GitHub-hosted runner; the selected EC2 user must be able to run `sudo` without an interactive password.
 
 Persistent named volumes retain Ghost content, MySQL, Prometheus, and Grafana data across deployments. Back up `ghost-production_ghost-content` and `ghost-production_mysql-data` independently; deployment is not a backup.
+
+The first deployment generates random MySQL and Grafana passwords directly on EC2 and stores them in `/opt/ghost/.env` with mode `600`. Later deployments preserve those values. To retrieve the initial Grafana password from your own terminal, run `ssh ubuntu@EC2_HOST 'grep ^GRAFANA_ADMIN_PASSWORD= /opt/ghost/.env'`.
 
 ## Monitoring access
 

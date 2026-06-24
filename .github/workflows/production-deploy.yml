@@ -148,20 +148,18 @@ jobs:
         env:
           IMAGE_REPOSITORY: ${{ needs.build.outputs.image }}
           IMAGE_TAG: ${{ needs.build.outputs.tag }}
-          GHOST_URL: ${{ secrets.GHOST_URL }}
-          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
-          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
-          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          GHOST_URL: ${{ vars.GHOST_URL }}
         run: |
           umask 077
+          if [ -z "$GHOST_URL" ]; then
+            GHOST_URL="http://${EC2_HOST}"
+          fi
           {
             printf 'IMAGE_REPOSITORY=%s\n' "$IMAGE_REPOSITORY"
             printf 'IMAGE_TAG=%s\n' "$IMAGE_TAG"
             printf 'GHOST_URL=%s\n' "$GHOST_URL"
             printf 'GHOST_PORT=80\n'
-            printf 'MYSQL_ROOT_PASSWORD=%s\n' "$MYSQL_ROOT_PASSWORD"
-            printf 'MYSQL_PASSWORD=%s\n' "$MYSQL_PASSWORD"
-            printf 'GRAFANA_ADMIN_PASSWORD=%s\n' "$GRAFANA_ADMIN_PASSWORD"
             printf 'MONITORING_BIND_ADDRESS=127.0.0.1\n'
             printf 'PROMETHEUS_RETENTION=15d\n'
           } > production.env
@@ -174,7 +172,7 @@ jobs:
           ssh "$EC2_USER@$EC2_HOST" 'bash -s' < scripts/deploy/bootstrap-ec2.sh
           tar czf deployment.tgz compose.production.yaml monitoring
           scp deployment.tgz production.env "$EC2_USER@$EC2_HOST:/tmp/"
-          ssh "$EC2_USER@$EC2_HOST" 'set -e; tar xzf /tmp/deployment.tgz -C /opt/ghost; install -m 600 /tmp/production.env /opt/ghost/.env; rm -f /tmp/deployment.tgz /tmp/production.env'
+          ssh "$EC2_USER@$EC2_HOST" 'set -e; umask 077; tar xzf /tmp/deployment.tgz -C /opt/ghost; if [ -f /opt/ghost/.env ]; then grep -vE "^(IMAGE_REPOSITORY|IMAGE_TAG|GHOST_URL|GHOST_PORT|MONITORING_BIND_ADDRESS|PROMETHEUS_RETENTION)=" /opt/ghost/.env > /tmp/merged.env || true; else printf "MYSQL_ROOT_PASSWORD=%s\nMYSQL_PASSWORD=%s\nGRAFANA_ADMIN_PASSWORD=%s\n" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > /tmp/merged.env; fi; sed -n "/^MYSQL_ROOT_PASSWORD=/p;/^MYSQL_PASSWORD=/p;/^GRAFANA_ADMIN_PASSWORD=/p" /tmp/merged.env | grep -q .; cat /tmp/production.env >> /tmp/merged.env; install -m 600 /tmp/merged.env /opt/ghost/.env; rm -f /tmp/deployment.tgz /tmp/production.env /tmp/merged.env'
 
       - name: Pull and deploy
         env:
@@ -196,10 +194,14 @@ jobs:
       - name: Deployment summary
         if: always()
         env:
-          GHOST_URL: ${{ secrets.GHOST_URL }}
+          GHOST_URL: ${{ vars.GHOST_URL }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
           IMAGE: ${{ needs.build.outputs.image }}
           IMAGE_TAG: ${{ needs.build.outputs.tag }}
         run: |
+          if [ -z "$GHOST_URL" ]; then
+            GHOST_URL="http://${EC2_HOST}"
+          fi
           {
             echo '## Production deployment'
             echo "- Result: **${{ job.status }}**"
