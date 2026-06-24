@@ -1,0 +1,21 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {"type":"stat","title":"Ghost up","id":1,"gridPos":{"h":8,"w":6,"x":0,"y":0},"targets":[{"expr":"probe_success{job=\"ghost\"}","refId":"A"}]},
+    {"type":"timeseries","title":"Ghost response time","id":2,"gridPos":{"h":8,"w":9,"x":6,"y":0},"targets":[{"expr":"probe_duration_seconds{job=\"ghost\"}","refId":"A"}]},
+    {"type":"timeseries","title":"Host CPU usage","id":3,"gridPos":{"h":8,"w":9,"x":15,"y":0},"targets":[{"expr":"100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)","refId":"A"}]},
+    {"type":"timeseries","title":"Host memory usage","id":4,"gridPos":{"h":8,"w":12,"x":0,"y":8},"targets":[{"expr":"100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)","refId":"A"}]},
+    {"type":"timeseries","title":"Container memory","id":5,"gridPos":{"h":8,"w":12,"x":12,"y":8},"targets":[{"expr":"sum by(name) (container_memory_working_set_bytes{name!=\"\"})","refId":"A"}]},
+    {"type":"stat","title":"MySQL exporter up","id":6,"gridPos":{"h":6,"w":6,"x":0,"y":16},"targets":[{"expr":"up{job=\"mysql\"}","refId":"A"}]}
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["ghost", "production"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timezone": "browser",
+  "title": "Ghost Production Overview",
+  "uid": "ghost-production",
+  "version": 1
+}
