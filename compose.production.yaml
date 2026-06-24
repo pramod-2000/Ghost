@@ -12,6 +12,8 @@ services:
     environment:
       NODE_ENV: production
       url: ${GHOST_URL}
+      server__host: 0.0.0.0
+      server__port: 2368
       database__client: mysql
       database__connection__host: mysql
       database__connection__user: ghost
