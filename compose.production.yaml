@@ -2,7 +2,7 @@ name: ghost-production
 
 services:
   ghost:
-    image: ${DOCKERHUB_USERNAME}/${IMAGE_NAME:-ghost-custom}:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPOSITORY:-ghcr.io/pramod-2000/ghost-custom}:${IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       mysql:

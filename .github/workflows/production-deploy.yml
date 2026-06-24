@@ -13,6 +13,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: write
   security-events: write
 
 env:
@@ -81,18 +82,19 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4
 
-      - name: Log in to Docker Hub
+      - name: Log in to GitHub Container Registry
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set image coordinates
         id: image
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          echo "image=${DOCKERHUB_USERNAME}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          OWNER=$(printf '%s' "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          NAME=$(printf '%s' "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/${OWNER}/${NAME}" >> "$GITHUB_OUTPUT"
           echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push immutable and latest tags
@@ -142,7 +144,7 @@ jobs:
 
       - name: Create protected production environment file
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          IMAGE_REPOSITORY: ${{ needs.build.outputs.image }}
           IMAGE_TAG: ${{ needs.build.outputs.tag }}
           GHOST_URL: ${{ secrets.GHOST_URL }}
           MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
@@ -151,8 +153,7 @@ jobs:
         run: |
           umask 077
           {
-            printf 'DOCKERHUB_USERNAME=%s\n' "$DOCKERHUB_USERNAME"
-            printf 'IMAGE_NAME=%s\n' "$IMAGE_NAME"
+            printf 'IMAGE_REPOSITORY=%s\n' "$IMAGE_REPOSITORY"
             printf 'IMAGE_TAG=%s\n' "$IMAGE_TAG"
             printf 'GHOST_URL=%s\n' "$GHOST_URL"
             printf 'GHOST_PORT=80\n'
@@ -177,10 +178,10 @@ jobs:
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ vars.EC2_USER || 'ubuntu' }}
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          printf '%s' "$DOCKERHUB_TOKEN" | ssh "$EC2_USER@$EC2_HOST" "docker login -u '$DOCKERHUB_USERNAME' --password-stdin"
+          printf '%s' "$GHCR_TOKEN" | ssh "$EC2_USER@$EC2_HOST" "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin"
           ssh "$EC2_USER@$EC2_HOST" 'cd /opt/ghost && docker compose -f compose.production.yaml pull && docker compose -f compose.production.yaml up -d --remove-orphans && docker image prune -f'
 
       - name: Health check
