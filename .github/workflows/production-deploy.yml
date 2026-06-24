@@ -94,7 +94,7 @@ jobs:
         env:
           # Paste the complete .pem file contents into this GitHub secret.
           EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY || secrets.EC2_SSH_KEY }}
-          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_HOST: ${{ vars.EC2_HOST || secrets.EC2_HOST }}
         run: |
           : "${EC2_HOST:?Set the EC2_HOST repository variable}"
           : "${EC2_SSH_PRIVATE_KEY:?Set the EC2_SSH_PRIVATE_KEY repository secret}"
@@ -116,7 +116,7 @@ jobs:
         env:
           IMAGE_REPOSITORY: ${{ needs.build.outputs.image }}
           IMAGE_TAG: ${{ needs.build.outputs.tag }}
-          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_HOST: ${{ vars.EC2_HOST || secrets.EC2_HOST }}
           GHOST_URL: ${{ vars.GHOST_URL }}
         run: |
           umask 077
@@ -134,7 +134,7 @@ jobs:
 
       - name: Bootstrap EC2 and upload deployment bundle
         env:
-          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_HOST: ${{ vars.EC2_HOST || secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
         run: |
           ssh "$EC2_USER@$EC2_HOST" 'bash -s' < scripts/deploy/bootstrap-ec2.sh
@@ -144,7 +144,7 @@ jobs:
 
       - name: Pull and deploy
         env:
-          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_HOST: ${{ vars.EC2_HOST || secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -154,7 +154,7 @@ jobs:
 
       - name: Health check
         env:
-          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_HOST: ${{ vars.EC2_HOST || secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
         run: |
           ssh "$EC2_USER@$EC2_HOST" 'for attempt in $(seq 1 30); do status=$(docker inspect --format="{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" ghost-production-ghost-1 2>/dev/null || true); if [ "$status" = healthy ]; then curl -fsS http://127.0.0.1/ >/dev/null && exit 0; fi; sleep 10; done; cd /opt/ghost; docker compose -f compose.production.yaml ps; docker compose -f compose.production.yaml logs --tail=150 ghost; exit 1'
@@ -163,7 +163,7 @@ jobs:
         if: always()
         env:
           GHOST_URL: ${{ vars.GHOST_URL }}
-          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_HOST: ${{ vars.EC2_HOST || secrets.EC2_HOST }}
           IMAGE: ${{ needs.build.outputs.image }}
           IMAGE_TAG: ${{ needs.build.outputs.tag }}
         run: |

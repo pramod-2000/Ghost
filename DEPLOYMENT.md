@@ -17,7 +17,7 @@ Add these GitHub **Actions secrets**:
 
 GitHub **Actions variables**:
 
-- `EC2_HOST` (required public IP or DNS name; the workflow automatically records its SSH host key)
+- `EC2_HOST` (required public IP or DNS name; it may instead be an Actions secret with the same name)
 - `IMAGE_NAME` (defaults to `ghost-custom`)
 - `GHOST_URL` (optional custom domain; defaults to `http://EC2_HOST`)
 
