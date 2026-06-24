@@ -31,15 +31,18 @@ jobs:
           submodules: recursive
 
       - name: Scan source and dependencies
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: sarif
-          output: trivy-results.sarif
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          exit-code: '1'
+        run: |
+          docker run --rm \
+            --volume "$PWD:/workspace" \
+            --volume trivy-cache:/root/.cache/trivy \
+            ghcr.io/aquasecurity/trivy:0.65.0 \
+            fs \
+            --format sarif \
+            --output /workspace/trivy-results.sarif \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            --exit-code 1 \
+            /workspace
 
       - name: Upload results to GitHub Security
         if: always() && hashFiles('trivy-results.sarif') != ''
