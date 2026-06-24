@@ -126,12 +126,14 @@ jobs:
         env:
           # Paste the complete .pem file contents into this GitHub secret.
           EC2_SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_PRIVATE_KEY || secrets.EC2_SSH_KEY }}
-          EC2_KNOWN_HOSTS: ${{ secrets.EC2_KNOWN_HOSTS }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
         run: |
+          : "${EC2_HOST:?Set the EC2_HOST repository variable}"
+          : "${EC2_SSH_PRIVATE_KEY:?Set the EC2_SSH_PRIVATE_KEY repository secret}"
           install -m 700 -d ~/.ssh
           printf '%s\n' "$EC2_SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "$EC2_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh-keyscan -H "$EC2_HOST" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
           {
             echo 'Host *'
@@ -166,8 +168,8 @@ jobs:
 
       - name: Bootstrap EC2 and upload deployment bundle
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ vars.EC2_USER || 'ubuntu' }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
         run: |
           ssh "$EC2_USER@$EC2_HOST" 'bash -s' < scripts/deploy/bootstrap-ec2.sh
           tar czf deployment.tgz compose.production.yaml monitoring
@@ -176,8 +178,8 @@ jobs:
 
       - name: Pull and deploy
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ vars.EC2_USER || 'ubuntu' }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -186,8 +188,8 @@ jobs:
 
       - name: Health check
         env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ vars.EC2_USER || 'ubuntu' }}
+          EC2_HOST: ${{ vars.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER || 'ubuntu' }}
         run: |
           ssh "$EC2_USER@$EC2_HOST" 'for attempt in $(seq 1 30); do status=$(docker inspect --format="{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}" ghost-production-ghost-1 2>/dev/null || true); if [ "$status" = healthy ]; then curl -fsS http://127.0.0.1/ >/dev/null && exit 0; fi; sleep 10; done; cd /opt/ghost; docker compose -f compose.production.yaml ps; docker compose -f compose.production.yaml logs --tail=150 ghost; exit 1'
 

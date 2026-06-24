@@ -12,17 +12,16 @@ Use an Ubuntu 22.04 or 24.04 EC2 instance. Allow inbound SSH (22) only from trus
 
 Add these GitHub **Actions secrets**:
 
-- `EC2_HOST` (public IP or DNS name)
 - `EC2_SSH_PRIVATE_KEY` (paste the **complete contents** of the EC2 `.pem` file, including the `BEGIN` and `END` lines)
-- `EC2_KNOWN_HOSTS` (the verified output of `ssh-keyscan -H your-host`)
+- `EC2_USER` (optional; defaults to `ubuntu`)
 - `GHOST_URL` (for example `http://blog.example.com` or the EC2 public URL)
 - `MYSQL_ROOT_PASSWORD` and `MYSQL_PASSWORD`
 - `GRAFANA_ADMIN_PASSWORD`
 
-Optional GitHub **Actions variables**:
+GitHub **Actions variables**:
 
+- `EC2_HOST` (required public IP or DNS name; the workflow automatically records its SSH host key)
 - `IMAGE_NAME` (defaults to `ghost-custom`)
-- `EC2_USER` (defaults to `ubuntu`)
 
 Create a protected GitHub environment named `production`. Pushing or merging to `main` then builds the custom Ghost distribution, publishes immutable `sha-...` and `latest` tags to GitHub Container Registry (`ghcr.io`) using the workflow's automatic `GITHUB_TOKEN`, installs Docker on EC2 when needed, deploys the exact SHA image, checks health, and writes the result to the workflow summary.
 
