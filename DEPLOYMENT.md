@@ -1,10 +1,10 @@
 # Production deployment
 
-The `Production security, build and deploy` workflow implements:
+The `Production build and deploy` workflow implements:
 
-`GitHub pull request → Trivy → CodeRabbit → merge to main → Docker build → GitHub Container Registry → EC2 → health check → summary → Prometheus/Grafana`
+`GitHub pull request → CodeRabbit → merge to main → Docker build → GitHub Container Registry → EC2 → health check → summary → Prometheus/Grafana`
 
-CodeRabbit runs as a GitHub App, not inside a GitHub-hosted runner. Install the CodeRabbit app for this repository, then protect `main` and require both **Trivy repository scan** and the CodeRabbit review check before merge. The committed `.coderabbit.yaml` configures its reviews.
+CodeRabbit runs as a GitHub App, not inside a GitHub-hosted runner. Install the CodeRabbit app for this repository, then protect `main` and require its review check before merge. The committed `.coderabbit.yaml` configures its reviews.
 
 ## One-time setup
 

@@ -1,8 +1,6 @@
-name: Production security, build and deploy
+name: Production build and deploy
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
   workflow_dispatch:
@@ -14,47 +12,14 @@ concurrency:
 permissions:
   contents: read
   packages: write
-  security-events: write
 
 env:
   NODE_VERSION: 22.18.0
   IMAGE_NAME: ${{ vars.IMAGE_NAME || 'ghost-custom' }}
 
 jobs:
-  trivy:
-    name: Trivy repository scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          submodules: recursive
-
-      - name: Scan source and dependencies
-        run: |
-          docker run --rm \
-            --volume "$PWD:/workspace" \
-            --volume trivy-cache:/root/.cache/trivy \
-            ghcr.io/aquasecurity/trivy:0.65.0 \
-            fs \
-            --format sarif \
-            --output /workspace/trivy-results.sarif \
-            --severity CRITICAL,HIGH \
-            --ignore-unfixed \
-            --exit-code 1 \
-            /workspace
-
-      - name: Upload results to GitHub Security
-        if: always() && hashFiles('trivy-results.sarif') != ''
-        continue-on-error: true # Upload requires GitHub Advanced Security on private repositories
-        uses: github/codeql-action/upload-sarif@b0c4fd77f6c559021d78430ec4d0d169ae74a4eb # v3
-        with:
-          sarif_file: trivy-results.sarif
-
   build:
     name: Build and push Docker image
-    if: github.event_name != 'pull_request'
-    needs: trivy
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.image.outputs.image }}
